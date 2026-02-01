@@ -1,8 +1,9 @@
 //
 //  UnitCategory.swift
-//  Equiv
+//  EquivWatch Watch App
 //
-//  Created by Callum Black on 30/01/2026.
+//  Shared unit definitions for the watch app.
+//  Keep in sync with Equiv/UnitCategory.swift.
 //
 
 import Foundation
@@ -76,8 +77,6 @@ enum UnitCategoryType: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Foundation Dimension objects for categories backed by the Measurement API.
-    /// Every unit is fully qualified because the return type is [Dimension] (base class).
     var dimensions: [Dimension] {
         switch self {
         case .length:
@@ -188,7 +187,7 @@ enum UnitCategoryType: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Custom Unit (for categories without Foundation support)
+// MARK: - Custom Unit
 
 struct CustomUnit: Identifiable, Hashable {
     let id = UUID()
@@ -206,7 +205,6 @@ extension Dimension {
         formatter.unitOptions = .providedUnit
         let measurement = Measurement(value: 0, unit: self)
         let formatted = formatter.string(from: measurement)
-        // The formatter returns something like "0 meters" — strip the leading number
         let name = formatted.replacingOccurrences(
             of: "^[\\d.,\\s-]+",
             with: "",

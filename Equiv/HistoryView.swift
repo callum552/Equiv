@@ -6,21 +6,34 @@
 //
 
 import SwiftUI
+import SwiftData
+import OSLog
 
 struct HistoryView: View {
-    var history = HistoryManager.shared
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \ConversionHistoryEntry.timestamp, order: .reverse)
+    private var entries: [ConversionHistoryEntry]
+
+    private let logger = Logger(subsystem: "name.callumblack.Equiv", category: "HistoryView")
 
     var body: some View {
         Group {
-            if history.entries.isEmpty {
+            if entries.isEmpty {
                 ContentUnavailableView(
-                    "No History",
+                    String(localized: "No History"),
                     systemImage: "clock.arrow.circlepath",
-                    description: Text("Your recent conversions will appear here.")
+                    description: Text(String(localized: "Your recent conversions will appear here."))
                 )
+                .onAppear {
+                    logger.warning("HistoryView: entries is empty. Checking manually...")
+                    let descriptor = FetchDescriptor<ConversionHistoryEntry>()
+                    if let count = try? modelContext.fetchCount(descriptor) {
+                        logger.warning("HistoryView: manual fetchCount = \(count)")
+                    }
+                }
             } else {
                 List {
-                    ForEach(history.entries) { entry in
+                    ForEach(entries) { entry in
                         if let category = entry.category {
                             NavigationLink(value: category) {
                                 historyRow(entry: entry)
@@ -32,18 +45,24 @@ struct HistoryView: View {
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Clear", role: .destructive) {
-                            history.clear()
+                        Button(String(localized: "Clear"), role: .destructive) {
+                            clearHistory()
                         }
                     }
                 }
             }
         }
-        .navigationTitle("History")
+        .navigationTitle(String(localized: "History"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func historyRow(entry: HistoryEntry) -> some View {
+    private func clearHistory() {
+        for entry in entries {
+            modelContext.delete(entry)
+        }
+    }
+
+    private func historyRow(entry: ConversionHistoryEntry) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(entry.category?.displayName ?? entry.categoryRawValue)
                 .font(.caption)
@@ -63,6 +82,9 @@ struct HistoryView: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(entry.category?.displayName ?? entry.categoryRawValue): \(entry.inputValue) \(entry.sourceUnitName) to \(entry.resultValue) \(entry.destinationUnitName)")
+        .accessibilityIdentifier("history_entry")
     }
 }
 
@@ -70,4 +92,5 @@ struct HistoryView: View {
     NavigationStack {
         HistoryView()
     }
+    .modelContainer(for: [FavoriteCategory.self, ConversionHistoryEntry.self], inMemory: true)
 }

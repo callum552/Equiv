@@ -23,13 +23,21 @@ class ConverterViewModel {
     var destinationIndex: Int = 1
     var useScientificNotation: Bool = false
 
+    // Currency support
+    var currencyService: CurrencyService?
+
     var unitCount: Int {
-        category.isCustom ? category.customUnits.count : category.dimensions.count
+        if category.isCurrency {
+            return currencyService?.currencies.count ?? 0
+        }
+        return category.isCustom ? category.customUnits.count : category.dimensions.count
     }
 
     var result: String {
         guard let value = Double(inputValue) else { return "" }
-        if category.isCustom {
+        if category.isCurrency {
+            return convertCurrency(value: value)
+        } else if category.isCustom {
             return convertCustom(value: value)
         } else {
             return convertFoundation(value: value)
@@ -54,7 +62,20 @@ class ConverterViewModel {
 
         var results: [MultiConvertResult] = []
 
-        if category.isCustom {
+        if category.isCurrency {
+            guard let service = currencyService else { return [] }
+            let currencies = service.currencies
+            guard sourceIndex < currencies.count else { return [] }
+
+            for (index, currency) in currencies.enumerated() where index != sourceIndex {
+                let converted = service.convert(value: value, fromIndex: sourceIndex, toIndex: index)
+                results.append(MultiConvertResult(
+                    unitName: currency.name,
+                    symbol: currency.symbol,
+                    value: formatResult(converted)
+                ))
+            }
+        } else if category.isCustom {
             let units = category.customUnits
             guard sourceIndex < units.count else { return [] }
             let baseValue = value * units[sourceIndex].toBaseFactor
@@ -107,7 +128,11 @@ class ConverterViewModel {
     }
 
     func unitName(at index: Int) -> String {
-        if category.isCustom {
+        if category.isCurrency {
+            guard let currencies = currencyService?.currencies,
+                  index < currencies.count else { return "" }
+            return "\(currencies[index].name) (\(currencies[index].symbol))"
+        } else if category.isCustom {
             let units = category.customUnits
             guard index < units.count else { return "" }
             return "\(units[index].name) (\(units[index].symbol))"
@@ -119,7 +144,11 @@ class ConverterViewModel {
     }
 
     func unitSymbol(at index: Int) -> String {
-        if category.isCustom {
+        if category.isCurrency {
+            guard let currencies = currencyService?.currencies,
+                  index < currencies.count else { return "" }
+            return currencies[index].symbol
+        } else if category.isCustom {
             let units = category.customUnits
             guard index < units.count else { return "" }
             return units[index].symbol
@@ -128,20 +157,6 @@ class ConverterViewModel {
             guard index < dims.count else { return "" }
             return dims[index].symbol
         }
-    }
-
-    func saveToHistory() {
-        let resultText = result
-        guard !inputValue.isEmpty, !resultText.isEmpty else { return }
-        let entry = HistoryEntry(
-            categoryRawValue: category.rawValue,
-            sourceUnitName: sourceUnitSymbol,
-            destinationUnitName: destinationUnitSymbol,
-            inputValue: inputValue,
-            resultValue: resultText,
-            timestamp: Date()
-        )
-        HistoryManager.shared.add(entry)
     }
 
     // MARK: - Foundation conversion
@@ -169,6 +184,14 @@ class ConverterViewModel {
         let result = baseValue / units[destinationIndex].toBaseFactor
 
         return formatResult(result)
+    }
+
+    // MARK: - Currency conversion
+
+    private func convertCurrency(value: Double) -> String {
+        guard let service = currencyService else { return "" }
+        let converted = service.convert(value: value, fromIndex: sourceIndex, toIndex: destinationIndex)
+        return formatResult(converted)
     }
 
     // MARK: - Formatting

@@ -8,10 +8,10 @@
 import SwiftUI
 
 @main
-struct EquivWatch_Watch_AppApp: App {
+struct EquivWatchApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            WatchCategoryListView()
         }
     }
 }

@@ -1,6 +1,6 @@
 //
-//  WidgetBundle.swift
-//  Widget
+//  EquivWidgetBundle.swift
+//  EquivWidget
 //
 //  Created by Callum Black on 31/01/2026.
 //

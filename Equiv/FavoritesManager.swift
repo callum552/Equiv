@@ -6,39 +6,72 @@
 //
 
 import Foundation
+import SwiftData
+import OSLog
+
+private let logger = Logger(subsystem: "name.callumblack.Equiv", category: "FavoritesManager")
 
 @Observable
 class FavoritesManager {
-    static let shared = FavoritesManager()
+    private var modelContext: ModelContext
 
-    private let key = "equiv_favorites"
-
-    var favoriteIDs: Set<String> {
-        didSet { save() }
-    }
-
-    private init() {
-        let stored = UserDefaults.standard.stringArray(forKey: key) ?? []
-        self.favoriteIDs = Set(stored)
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
 
     func isFavorite(_ category: UnitCategoryType) -> Bool {
-        favoriteIDs.contains(category.rawValue)
+        let rawValue = category.rawValue
+        let descriptor = FetchDescriptor<FavoriteCategory>(
+            predicate: #Predicate { $0.categoryRawValue == rawValue }
+        )
+        do {
+            return try modelContext.fetchCount(descriptor) > 0
+        } catch {
+            logger.error("Failed to check favorite status for \(rawValue): \(error.localizedDescription)")
+            return false
+        }
     }
 
     func toggle(_ category: UnitCategoryType) {
-        if favoriteIDs.contains(category.rawValue) {
-            favoriteIDs.remove(category.rawValue)
-        } else {
-            favoriteIDs.insert(category.rawValue)
+        let rawValue = category.rawValue
+        let descriptor = FetchDescriptor<FavoriteCategory>(
+            predicate: #Predicate { $0.categoryRawValue == rawValue }
+        )
+        do {
+            if let existing = try modelContext.fetch(descriptor).first {
+                modelContext.delete(existing)
+                logger.info("Removed favorite: \(rawValue)")
+            } else {
+                let favorite = FavoriteCategory(categoryRawValue: rawValue)
+                modelContext.insert(favorite)
+                logger.info("Added favorite: \(rawValue)")
+            }
+        } catch {
+            logger.error("Failed to toggle favorite for \(rawValue): \(error.localizedDescription)")
         }
     }
 
     var favorites: [UnitCategoryType] {
-        UnitCategoryType.allCases.filter { favoriteIDs.contains($0.rawValue) }
+        let descriptor = FetchDescriptor<FavoriteCategory>(
+            sortBy: [SortDescriptor(\.dateAdded)]
+        )
+        do {
+            let stored = try modelContext.fetch(descriptor)
+            return stored.compactMap { $0.category }
+        } catch {
+            logger.error("Failed to fetch favorites: \(error.localizedDescription)")
+            return []
+        }
     }
 
-    private func save() {
-        UserDefaults.standard.set(Array(favoriteIDs), forKey: key)
+    var favoriteIDs: Set<String> {
+        let descriptor = FetchDescriptor<FavoriteCategory>()
+        do {
+            let stored = try modelContext.fetch(descriptor)
+            return Set(stored.map(\.categoryRawValue))
+        } catch {
+            logger.error("Failed to fetch favorite IDs: \(error.localizedDescription)")
+            return []
+        }
     }
 }

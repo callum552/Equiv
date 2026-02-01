@@ -1,6 +1,6 @@
 //
-//  Widget.swift
-//  Widget
+//  EquivWidget.swift
+//  EquivWidget
 //
 //  Created by Callum Black on 31/01/2026.
 //
@@ -42,25 +42,17 @@ struct EquivWidgetEntryView: View {
     var entry: ConversionEntry
     @Environment(\.widgetFamily) var family
 
-    private var deepLinkURL: URL? {
-        guard let conversion = entry.conversion else { return nil }
-        return URL(string: "equiv://category/\(conversion.categoryRawValue)")
-    }
-
     var body: some View {
-        Group {
-            if let conversion = entry.conversion {
-                switch family {
-                case .systemSmall:
-                    smallWidget(conversion)
-                default:
-                    mediumWidget(conversion)
-                }
-            } else {
-                emptyWidget
+        if let conversion = entry.conversion {
+            switch family {
+            case .systemSmall:
+                smallWidget(conversion)
+            default:
+                mediumWidget(conversion)
             }
+        } else {
+            emptyWidget
         }
-        .widgetURL(deepLinkURL)
     }
 
     private func smallWidget(_ conversion: SharedConversion) -> some View {

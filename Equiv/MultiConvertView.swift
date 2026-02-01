@@ -23,6 +23,7 @@ struct MultiConvertView: View {
                     }
                     .padding(.horizontal, 4)
                     .padding(.bottom, 4)
+                    .accessibilityAddTraits(.isHeader)
 
                     ForEach(viewModel.allResults) { result in
                         resultRow(result)
@@ -31,7 +32,7 @@ struct MultiConvertView: View {
                 .padding()
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("All Units")
+            .navigationTitle(String(localized: "All Units"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -67,7 +68,7 @@ struct MultiConvertView: View {
                 }
                 Spacer()
                 if copiedSymbol == result.symbol {
-                    Text("Copied")
+                    Text(String(localized: "Copied"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .transition(.opacity)
@@ -89,6 +90,12 @@ struct MultiConvertView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(result.unitName), \(result.value) \(result.symbol)")
+        .accessibilityHint(String(localized: "Double tap to copy"))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("multi_result_\(result.symbol)")
+        .draggable(result.value)
     }
 }
 

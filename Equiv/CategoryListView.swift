@@ -6,24 +6,41 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct CategoryListView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var searchText = ""
-    var favorites = FavoritesManager.shared
+    @State private var favorites: FavoritesManager?
+    @State private var navigationPath = NavigationPath()
+    @Binding var deepLinkCategory: UnitCategoryType?
+    @Environment(\.supportsMultipleWindows) private var supportsMultipleWindows
+    @Environment(\.openWindow) private var openWindow
+
+    init(deepLinkCategory: Binding<UnitCategoryType?> = .constant(nil)) {
+        self._deepLinkCategory = deepLinkCategory
+    }
+
+    private var favoritesManager: FavoritesManager {
+        if let favorites { return favorites }
+        let manager = FavoritesManager(modelContext: modelContext)
+        DispatchQueue.main.async { self.favorites = manager }
+        return manager
+    }
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
-        case 5..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        case 17..<22: return "Good evening"
-        default: return "Good evening"
+        case 5..<12: return String(localized: "Good morning")
+        case 12..<17: return String(localized: "Good afternoon")
+        case 17..<22: return String(localized: "Good evening")
+        default: return String(localized: "Good evening")
         }
     }
 
     private var filteredCategories: [UnitCategoryType] {
         if searchText.isEmpty {
-            return UnitCategoryType.allCases.filter { !favorites.isFavorite($0) }
+            return UnitCategoryType.allCases.filter { !favoritesManager.isFavorite($0) }
         }
         return UnitCategoryType.allCases.filter {
             $0.displayName.localizedCaseInsensitiveContains(searchText)
@@ -32,30 +49,29 @@ struct CategoryListView: View {
 
     private var filteredFavorites: [UnitCategoryType] {
         if searchText.isEmpty {
-            return favorites.favorites
+            return favoritesManager.favorites
         }
-        return favorites.favorites.filter {
+        return favoritesManager.favorites.filter {
             $0.displayName.localizedCaseInsensitiveContains(searchText)
         }
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    // Hero header
                     if searchText.isEmpty {
                         heroHeader
                     }
 
                     if !filteredFavorites.isEmpty {
-                        sectionHeader("Favorites")
+                        sectionHeader(String(localized: "Favorites"))
                         ForEach(filteredFavorites) { category in
                             categoryCard(category)
                         }
                     }
 
-                    sectionHeader(filteredFavorites.isEmpty ? "Categories" : "All Categories")
+                    sectionHeader(filteredFavorites.isEmpty ? String(localized: "Categories") : String(localized: "All Categories"))
                     ForEach(filteredCategories) { category in
                         categoryCard(category)
                     }
@@ -71,26 +87,50 @@ struct CategoryListView: View {
                 )
                 .ignoresSafeArea()
             )
-            .navigationTitle("Equiv")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: "Search categories")
+            .searchable(text: $searchText, prompt: String(localized: "Search categories"))
             .navigationDestination(for: UnitCategoryType.self) { category in
-                ConverterView(viewModel: ConverterViewModel(category: category))
+                ConverterView(category: category)
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink(value: "about") {
+                        Image(systemName: "info.circle")
+                    }
+                    .accessibilityLabel(String(localized: "About"))
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink(value: "history") {
-                        Image(systemName: "clock.arrow.circlepath")
+                    HStack(spacing: 12) {
+                        if supportsMultipleWindows {
+                            Button {
+                                openWindow(id: "equiv-converter")
+                            } label: {
+                                Image(systemName: "plus.rectangle.on.rectangle")
+                            }
+                            .accessibilityLabel(String(localized: "Open new window"))
+                        }
+                        NavigationLink(value: "history") {
+                            Image(systemName: "clock.arrow.circlepath")
+                        }
+                        .accessibilityLabel(String(localized: "History"))
                     }
                 }
             }
             .navigationDestination(for: String.self) { value in
-                if value == "history" {
+                switch value {
+                case "history":
                     HistoryView()
-                        .navigationDestination(for: UnitCategoryType.self) { category in
-                            ConverterView(viewModel: ConverterViewModel(category: category))
-                        }
+                case "about":
+                    AboutView()
+                default:
+                    EmptyView()
                 }
+            }
+        }
+        .onChange(of: deepLinkCategory) { _, newValue in
+            if let category = newValue {
+                navigationPath.append(category)
+                deepLinkCategory = nil
             }
         }
     }
@@ -99,20 +139,23 @@ struct CategoryListView: View {
 
     private var heroHeader: some View {
         VStack(alignment: .leading, spacing: 6) {
+            Text("Equiv")
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+
             Text(greeting)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text("Equiv")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-
-            Text("\(UnitCategoryType.allCases.count) unit categories ready to convert")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            Text("\(UnitCategoryType.allCases.count) \(String(localized: "unit categories ready to convert"))")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 8)
         .padding(.leading, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("hero_header")
     }
 
     // MARK: - Section Header
@@ -128,6 +171,7 @@ struct CategoryListView: View {
         }
         .padding(.top, 8)
         .padding(.leading, 4)
+        .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: - Category Card
@@ -152,7 +196,7 @@ struct CategoryListView: View {
 
                 Spacer()
 
-                if favorites.isFavorite(category) {
+                if favoritesManager.isFavorite(category) {
                     Image(systemName: "star.fill")
                         .font(.caption)
                         .foregroundStyle(.yellow)
@@ -175,6 +219,10 @@ struct CategoryListView: View {
             )
         }
         .buttonStyle(.plain)
+        .hoverEffect(.lift)
+        .accessibilityLabel(category.displayName)
+        .accessibilityHint(String(localized: "Opens unit converter"))
+        .accessibilityIdentifier("category_\(category.rawValue)")
     }
 
     private func iconColor(for category: UnitCategoryType) -> Color {
@@ -198,10 +246,12 @@ struct CategoryListView: View {
         case .torque: .purple
         case .density: .cyan
         case .illuminance: .yellow
+        case .currency: .green
         }
     }
 }
 
 #Preview {
     CategoryListView()
+        .modelContainer(for: [FavoriteCategory.self, ConversionHistoryEntry.self], inMemory: true)
 }

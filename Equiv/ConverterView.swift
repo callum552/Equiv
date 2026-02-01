@@ -6,16 +6,35 @@
 //
 
 import SwiftUI
+import SwiftData
+import WidgetKit
+import OSLog
 
 struct ConverterView: View {
+    @Environment(\.modelContext) private var modelContext
     @Bindable var viewModel: ConverterViewModel
-    var favorites = FavoritesManager.shared
+    @State private var favorites: FavoritesManager?
+    @State private var liveActivityManager = LiveActivityManager()
     @State private var showCopied = false
     @State private var swapRotation: Double = 0
-    @State private var showMultiConvert = false
     @State private var showCopyTip = !UserDefaults.standard.bool(forKey: "equiv_copy_tip_shown")
+    @State private var didSaveHistory = false
     @FocusState private var inputFocused: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @ScaledMetric(relativeTo: .title) private var resultFontSize: CGFloat = 36
+
+    init(category: UnitCategoryType) {
+        self.viewModel = ConverterViewModel(category: category)
+    }
+
+    private var favoritesManager: FavoritesManager {
+        if let favorites { return favorites }
+        let manager = FavoritesManager(modelContext: modelContext)
+        DispatchQueue.main.async { self.favorites = manager }
+        return manager
+    }
 
     var body: some View {
         ScrollView {
@@ -31,28 +50,28 @@ struct ConverterView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
-                    // Share
                     if !viewModel.shareText.isEmpty {
                         ShareLink(item: viewModel.shareText) {
                             Image(systemName: "square.and.arrow.up")
                         }
                     }
-                    // Favorite
                     Button {
                         withAnimation {
-                            favorites.toggle(viewModel.category)
+                            favoritesManager.toggle(viewModel.category)
                         }
                     } label: {
-                        Image(systemName: favorites.isFavorite(viewModel.category) ? "star.fill" : "star")
-                            .foregroundStyle(favorites.isFavorite(viewModel.category) ? .yellow : .secondary)
+                        Image(systemName: favoritesManager.isFavorite(viewModel.category) ? "star.fill" : "star")
+                            .foregroundStyle(favoritesManager.isFavorite(viewModel.category) ? .yellow : .secondary)
                     }
+                    .accessibilityLabel(favoritesManager.isFavorite(viewModel.category) ? String(localized: "Remove from favorites") : String(localized: "Add to favorites"))
+                    .accessibilityIdentifier("favorite_toggle")
                 }
             }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") {
+                Button(String(localized: "Done")) {
                     inputFocused = false
-                    viewModel.saveToHistory()
+                    saveToHistory()
                 }
             }
         }
@@ -68,13 +87,117 @@ struct ConverterView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .sheet(isPresented: $showMultiConvert) {
-            MultiConvertView(viewModel: viewModel)
-                .presentationDetents([.medium, .large])
+        .onAppear {
+            startLiveActivity()
         }
         .onDisappear {
-            viewModel.saveToHistory()
+            saveToHistory()
+            liveActivityManager.endActivity()
         }
+        .onChange(of: viewModel.result) { _, newValue in
+            if !newValue.isEmpty {
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+                AccessibilityNotification.Announcement("\(newValue) \(viewModel.destinationUnitSymbol)").post()
+                liveActivityManager.updateActivity(
+                    input: viewModel.inputValue,
+                    result: newValue,
+                    sourceSymbol: viewModel.sourceUnitSymbol,
+                    destSymbol: viewModel.destinationUnitSymbol
+                )
+            }
+        }
+        .task {
+            if viewModel.category.isCurrency {
+                let service = CurrencyService(modelContext: modelContext)
+                viewModel.currencyService = service
+                await service.fetchRates()
+            }
+        }
+    }
+
+    // MARK: - Currency Info Bar
+
+    private var currencyInfoBar: some View {
+        VStack(spacing: 8) {
+            if let service = viewModel.currencyService {
+                // Error state with prominent retry
+                if service.error != nil && service.currencies.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "wifi.exclamationmark")
+                            .font(.title2)
+                            .foregroundStyle(.orange)
+                        Text(String(localized: "Unable to load exchange rates"))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text(String(localized: "Check your internet connection and try again."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            Task { await service.fetchRates() }
+                        } label: {
+                            Label(String(localized: "Retry"), systemImage: "arrow.clockwise")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(.ultraThinMaterial)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(service.isLoading)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                } else {
+                    // Normal info bar
+                    HStack(spacing: 8) {
+                        if service.isLoading {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text(String(localized: "Updating rates..."))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else if let lastUpdated = service.lastUpdated {
+                            Image(systemName: "clock")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text("\(lastUpdated, style: .relative) \(String(localized: "ago"))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if service.error != nil && !service.currencies.isEmpty {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                            Text(String(localized: "Using cached rates"))
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                        Spacer()
+                        if service.cooldownRemaining > 0 {
+                            Text("\(service.cooldownRemaining)s")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .monospacedDigit()
+                        }
+                        Button {
+                            Task { await service.fetchRates() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.caption)
+                                .foregroundStyle(service.canRefresh ? .secondary : .tertiary)
+                        }
+                        .disabled(!service.canRefresh || service.isLoading)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 8)
     }
 
     // MARK: - Portrait Layout
@@ -84,7 +207,9 @@ struct ConverterView: View {
             fromCard
             swapButton
             toCard
-            actionBar
+            if viewModel.category.isCurrency {
+                currencyInfoBar
+            }
         }
         .padding(.horizontal)
         .padding(.top, 8)
@@ -99,7 +224,9 @@ struct ConverterView: View {
                 swapButton
                 toCard
             }
-            actionBar
+            if viewModel.category.isCurrency {
+                currencyInfoBar
+            }
         }
         .padding()
     }
@@ -109,12 +236,12 @@ struct ConverterView: View {
     private var fromCard: some View {
         glassCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("FROM")
+                Text(String(localized: "FROM"))
                     .font(.caption)
                     .fontWeight(.bold)
                     .foregroundStyle(.secondary)
 
-                Picker("Source Unit", selection: $viewModel.sourceIndex) {
+                Picker(String(localized: "Source Unit"), selection: $viewModel.sourceIndex) {
                     ForEach(0..<viewModel.unitCount, id: \.self) { index in
                         Text(viewModel.unitName(at: index)).tag(index)
                     }
@@ -125,14 +252,18 @@ struct ConverterView: View {
                 HStack(spacing: 8) {
                     TextField("0", text: $viewModel.inputValue)
                         .keyboardType(.decimalPad)
-                        .font(.system(size: 36, weight: .semibold, design: .rounded))
+                        .font(.system(size: resultFontSize, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .focused($inputFocused)
+                        .accessibilityLabel(String(localized: "Value to convert"))
+                        .accessibilityValue(viewModel.inputValue.isEmpty ? "0" : viewModel.inputValue)
+                        .accessibilityInputLabels([String(localized: "Convert"), String(localized: "Source value"), String(localized: "Input")])
+                        .accessibilityIdentifier("converter_input")
 
                     Button {
                         viewModel.toggleNegative()
                     } label: {
-                        Text("+/−")
+                        Text("+/\u{2212}")
                             .font(.body)
                             .fontWeight(.semibold)
                             .foregroundStyle(.secondary)
@@ -142,8 +273,20 @@ struct ConverterView: View {
                                     .fill(.ultraThinMaterial)
                             )
                     }
+                    .accessibilityLabel(String(localized: "Toggle negative"))
+                    .accessibilityHint(String(localized: "Makes the value negative or positive"))
                 }
             }
+        }
+        .dropDestination(for: String.self) { items, _ in
+            if let first = items.first {
+                let cleaned = first.trimmingCharacters(in: .whitespacesAndNewlines)
+                if Double(cleaned) != nil {
+                    viewModel.inputValue = cleaned
+                    return true
+                }
+            }
+            return false
         }
     }
 
@@ -153,14 +296,13 @@ struct ConverterView: View {
         glassCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("TO")
+                    Text(String(localized: "TO"))
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
-                    // Scientific notation toggle
                     Button {
                         viewModel.useScientificNotation.toggle()
                     } label: {
@@ -175,9 +317,13 @@ struct ConverterView: View {
                                     .opacity(viewModel.useScientificNotation ? 1 : 0)
                             )
                     }
+                    .accessibilityLabel(String(localized: "Scientific notation"))
+                    .accessibilityValue(viewModel.useScientificNotation ? String(localized: "On") : String(localized: "Off"))
+                    .accessibilityAddTraits(viewModel.useScientificNotation ? .isSelected : [])
+                    .accessibilityIdentifier("scientific_notation_toggle")
                 }
 
-                Picker("Destination Unit", selection: $viewModel.destinationIndex) {
+                Picker(String(localized: "Destination Unit"), selection: $viewModel.destinationIndex) {
                     ForEach(0..<viewModel.unitCount, id: \.self) { index in
                         Text(viewModel.unitName(at: index)).tag(index)
                     }
@@ -185,17 +331,23 @@ struct ConverterView: View {
                 .pickerStyle(.menu)
                 .tint(.primary)
 
-                Text(viewModel.result.isEmpty ? "—" : viewModel.result)
-                    .font(.system(size: 36, weight: .semibold, design: .rounded))
+                Text(viewModel.result.isEmpty ? "\u{2014}" : viewModel.result)
+                    .font(.system(size: resultFontSize, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(viewModel.result.isEmpty ? .tertiary : .primary)
-                    .contentTransition(.numericText())
-                    .animation(.default, value: viewModel.result)
+                    .contentTransition(reduceMotion ? .identity : .numericText())
+                    .animation(reduceMotion ? .none : .default, value: viewModel.result)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         copyResult()
                     }
+                    .accessibilityLabel(String(localized: "Conversion result"))
+                    .accessibilityValue(viewModel.result.isEmpty ? String(localized: "No result") : "\(viewModel.result) \(viewModel.destinationUnitSymbol)")
+                    .accessibilityHint(String(localized: "Double tap to copy"))
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityIdentifier("converter_result")
+                    .draggable(viewModel.result.isEmpty ? "" : viewModel.result)
             }
         }
     }
@@ -206,9 +358,13 @@ struct ConverterView: View {
         Button {
             let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()
-            withAnimation(.spring(duration: 0.3)) {
+            if reduceMotion {
                 viewModel.swap()
-                swapRotation += 180
+            } else {
+                withAnimation(.spring(duration: 0.3)) {
+                    viewModel.swap()
+                    swapRotation += 180
+                }
             }
         } label: {
             Image(systemName: "arrow.up.arrow.down")
@@ -228,32 +384,9 @@ struct ConverterView: View {
         }
         .padding(.vertical, sizeClass == .regular ? 0 : -10)
         .zIndex(1)
-    }
-
-    // MARK: - Action Bar
-
-    private var actionBar: some View {
-        HStack(spacing: 12) {
-            Button {
-                showMultiConvert = true
-            } label: {
-                Label("Show All", systemImage: "list.bullet")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
-                    )
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.top, 16)
+        .hoverEffect(.lift)
+        .accessibilityLabel(String(localized: "Swap source and destination units"))
+        .accessibilityIdentifier("swap_button")
     }
 
     // MARK: - Glass Card
@@ -279,23 +412,74 @@ struct ConverterView: View {
         UIPasteboard.general.string = viewModel.result
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
-        withAnimation(.easeInOut(duration: 0.25)) {
+        if reduceMotion {
             showCopied = true
+        } else {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                showCopied = true
+            }
         }
-        // Dismiss tip permanently
         if showCopyTip {
             UserDefaults.standard.set(true, forKey: "equiv_copy_tip_shown")
-            withAnimation { showCopyTip = false }
+            if reduceMotion { showCopyTip = false } else { withAnimation { showCopyTip = false } }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.easeInOut(duration: 0.25)) {
+            if reduceMotion {
                 showCopied = false
+            } else {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showCopied = false
+                }
             }
         }
     }
 
+    // MARK: - Save to History
+
+    private func saveToHistory() {
+        guard !didSaveHistory else { return }
+        let resultText = viewModel.result
+        guard !viewModel.inputValue.isEmpty, !resultText.isEmpty else { return }
+        didSaveHistory = true
+        let manager = HistoryManager(modelContext: modelContext)
+        manager.add(
+            categoryRawValue: viewModel.category.rawValue,
+            sourceUnitName: viewModel.sourceUnitSymbol,
+            destinationUnitName: viewModel.destinationUnitSymbol,
+            inputValue: viewModel.inputValue,
+            resultValue: resultText
+        )
+
+        // Update widget data
+        let shared = SharedConversion(
+            categoryRawValue: viewModel.category.rawValue,
+            sourceUnitSymbol: viewModel.sourceUnitSymbol,
+            destinationUnitSymbol: viewModel.destinationUnitSymbol,
+            inputValue: viewModel.inputValue,
+            resultValue: resultText,
+            categoryDisplayName: viewModel.category.displayName,
+            timestamp: .now
+        )
+        SharedConversion.save(shared)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    // MARK: - Live Activity
+
+    private func startLiveActivity() {
+        let input = viewModel.inputValue.isEmpty ? "0" : viewModel.inputValue
+        let result = viewModel.result.isEmpty ? "\u{2014}" : viewModel.result
+        liveActivityManager.startActivity(
+            categoryName: viewModel.category.displayName,
+            input: input,
+            result: result,
+            sourceSymbol: viewModel.sourceUnitSymbol,
+            destSymbol: viewModel.destinationUnitSymbol
+        )
+    }
+
     private var copiedBanner: some View {
-        Text("Copied to clipboard")
+        Text(String(localized: "Copied to clipboard"))
             .font(.subheadline)
             .fontWeight(.medium)
             .padding(.horizontal, 16)
@@ -317,7 +501,7 @@ struct ConverterView: View {
         HStack(spacing: 8) {
             Image(systemName: "hand.tap")
                 .font(.subheadline)
-            Text("Tap the result to copy it")
+            Text(String(localized: "Tap the result to copy it"))
                 .font(.subheadline)
         }
         .fontWeight(.medium)
@@ -348,6 +532,7 @@ struct ConverterView: View {
 
 #Preview {
     NavigationStack {
-        ConverterView(viewModel: ConverterViewModel(category: .length))
+        ConverterView(category: .length)
     }
+    .modelContainer(for: [FavoriteCategory.self, ConversionHistoryEntry.self], inMemory: true)
 }

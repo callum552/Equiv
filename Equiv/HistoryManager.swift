@@ -6,54 +6,71 @@
 //
 
 import Foundation
+import SwiftData
+import OSLog
 
-struct HistoryEntry: Codable, Identifiable {
-    var id = UUID()
-    let categoryRawValue: String
-    let sourceUnitName: String
-    let destinationUnitName: String
-    let inputValue: String
-    let resultValue: String
-    let timestamp: Date
-
-    var category: UnitCategoryType? {
-        UnitCategoryType(rawValue: categoryRawValue)
-    }
-}
+private let logger = Logger(subsystem: "name.callumblack.Equiv", category: "HistoryManager")
 
 @Observable
 class HistoryManager {
-    static let shared = HistoryManager()
+    private var modelContext: ModelContext
+    private let maxEntries = 50
 
-    private let key = "equiv_history"
-    private let maxEntries = 20
-
-    var entries: [HistoryEntry] {
-        didSet { save() }
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
 
-    private init() {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([HistoryEntry].self, from: data) else {
-            self.entries = []
-            return
+    var entries: [ConversionHistoryEntry] {
+        var descriptor = FetchDescriptor<ConversionHistoryEntry>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = maxEntries
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            logger.error("Failed to fetch history entries: \(error.localizedDescription)")
+            return []
         }
-        self.entries = decoded
     }
 
-    func add(_ entry: HistoryEntry) {
-        entries.insert(entry, at: 0)
-        if entries.count > maxEntries {
-            entries = Array(entries.prefix(maxEntries))
-        }
+    func add(categoryRawValue: String, sourceUnitName: String,
+             destinationUnitName: String, inputValue: String, resultValue: String) {
+        let entry = ConversionHistoryEntry(
+            categoryRawValue: categoryRawValue,
+            sourceUnitName: sourceUnitName,
+            destinationUnitName: destinationUnitName,
+            inputValue: inputValue,
+            resultValue: resultValue
+        )
+        modelContext.insert(entry)
+        logger.info("Inserted history entry: \(inputValue) \(sourceUnitName) → \(resultValue) \(destinationUnitName)")
     }
 
     func clear() {
-        entries.removeAll()
+        do {
+            let descriptor = FetchDescriptor<ConversionHistoryEntry>()
+            let all = try modelContext.fetch(descriptor)
+            for entry in all {
+                modelContext.delete(entry)
+            }
+            logger.info("History cleared (\(all.count) entries removed)")
+        } catch {
+            logger.error("Failed to clear history: \(error.localizedDescription)")
+        }
     }
 
-    private func save() {
-        guard let data = try? JSONEncoder().encode(entries) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+    private func trimOldEntries() {
+        var descriptor = FetchDescriptor<ConversionHistoryEntry>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchOffset = maxEntries
+        do {
+            let excess = try modelContext.fetch(descriptor)
+            for entry in excess {
+                modelContext.delete(entry)
+            }
+        } catch {
+            logger.error("Failed to trim old history entries: \(error.localizedDescription)")
+        }
     }
 }

@@ -10,8 +10,22 @@ import Testing
 
 struct EquivWatch_Watch_AppTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test func allCategoriesHaveIcons() async throws {
+        for category in UnitCategoryType.allCases {
+            #expect(!category.icon.isEmpty, "Category \(category.displayName) should have an icon")
+        }
     }
 
+    @Test func allCategoriesHaveDisplayNames() async throws {
+        for category in UnitCategoryType.allCases {
+            #expect(!category.displayName.isEmpty, "Category \(category.rawValue) should have a display name")
+        }
+    }
+
+    @Test func allCategoriesHaveUnits() async throws {
+        for category in UnitCategoryType.allCases {
+            let hasUnits = category.isCustom ? !category.customUnits.isEmpty : !category.dimensions.isEmpty
+            #expect(hasUnits, "Category \(category.displayName) should have units")
+        }
+    }
 }
