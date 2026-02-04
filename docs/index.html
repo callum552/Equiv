@@ -190,6 +190,32 @@
             flex-shrink: 0;
         }
 
+        .screenshot-group {
+            margin-bottom: 48px;
+        }
+
+        .screenshot-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .screenshot-group h3 {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: var(--text-secondary);
+        }
+
+        .screenshot-scroll.ipad img {
+            height: 380px;
+            border-radius: 16px;
+        }
+
+        .screenshot-scroll.watch img {
+            height: 220px;
+            border-radius: 50px;
+        }
+
         .screenshot-placeholder {
             height: 480px;
             width: 222px;
@@ -204,6 +230,29 @@
             font-size: 14px;
             text-align: center;
             padding: 24px;
+        }
+
+        .screenshot-placeholder.ipad {
+            height: 380px;
+            width: 507px;
+            border-radius: 16px;
+        }
+
+        .screenshot-placeholder.watch {
+            height: 220px;
+            width: 190px;
+            border-radius: 50px;
+        }
+
+        .screenshot-scroll.widget img {
+            height: 200px;
+            border-radius: 20px;
+        }
+
+        .screenshot-placeholder.widget {
+            height: 200px;
+            width: 360px;
+            border-radius: 20px;
         }
 
         /* Features */
@@ -344,8 +393,35 @@
                 height: 400px;
             }
 
+            .screenshot-scroll.ipad img,
+            .screenshot-placeholder.ipad {
+                height: 300px;
+            }
+
+            .screenshot-scroll.watch img,
+            .screenshot-placeholder.watch {
+                height: 180px;
+            }
+
             .screenshot-placeholder {
                 width: 185px;
+            }
+
+            .screenshot-placeholder.ipad {
+                width: 400px;
+            }
+
+            .screenshot-placeholder.watch {
+                width: 155px;
+            }
+
+            .screenshot-scroll.widget img,
+            .screenshot-placeholder.widget {
+                height: 160px;
+            }
+
+            .screenshot-placeholder.widget {
+                width: 290px;
             }
 
             .features-grid {
@@ -377,8 +453,35 @@
                 height: 340px;
             }
 
+            .screenshot-scroll.ipad img,
+            .screenshot-placeholder.ipad {
+                height: 240px;
+            }
+
+            .screenshot-scroll.watch img,
+            .screenshot-placeholder.watch {
+                height: 160px;
+            }
+
             .screenshot-placeholder {
                 width: 157px;
+            }
+
+            .screenshot-placeholder.ipad {
+                width: 320px;
+            }
+
+            .screenshot-placeholder.watch {
+                width: 138px;
+            }
+
+            .screenshot-scroll.widget img,
+            .screenshot-placeholder.widget {
+                height: 130px;
+            }
+
+            .screenshot-placeholder.widget {
+                width: 234px;
             }
         }
     </style>
@@ -425,13 +528,43 @@
     <section class="screenshots">
         <div class="container">
             <h2>See it in action</h2>
-            <div class="screenshot-scroll">
-                <!-- Replace these placeholders with actual screenshots -->
-                <!-- Save screenshots as screenshot-1.png, screenshot-2.png, etc. in the docs/ folder -->
-                <!-- Then replace each placeholder div with: <img src="screenshot-1.png" alt="..."> -->
-                <div class="screenshot-placeholder">Add iPhone screenshots here</div>
-                <div class="screenshot-placeholder">Add iPhone screenshots here</div>
-                <div class="screenshot-placeholder">Add iPhone screenshots here</div>
+
+            <!-- iPhone -->
+            <div class="screenshot-group">
+                <h3>iPhone</h3>
+                <div class="screenshot-scroll">
+                    <!-- Save screenshots as screenshot-1.png etc. in docs/, then replace placeholders with: -->
+                    <!-- <img src="screenshot-1.png" alt="Category list"> -->
+                    <img src="screenshot-2.png" alt="Category list showing 20 unit categories">
+                    <img src="screenshot-1.png" alt="Length converter showing 20 metres to 0.02 kilometres">
+                    <img src="screenshot-3.png" alt="Currency converter showing GBP to USD">
+                </div>
+            </div>
+
+            <!-- iPad -->
+            <div class="screenshot-group">
+                <h3>iPad</h3>
+                <div class="screenshot-scroll ipad">
+                    <img src="ipad-1.png" alt="iPad category list showing all 20 unit categories">
+                    <img src="ipad-2.png" alt="iPad currency converter in landscape layout">
+                    <img src="ipad-3.png" alt="iPad length converter in landscape layout">
+                </div>
+            </div>
+
+            <!-- Apple Watch -->
+            <div class="screenshot-group">
+                <h3>Apple Watch</h3>
+                <div class="screenshot-scroll watch">
+                    <img src="watch-1.png" alt="Apple Watch category list">
+                </div>
+            </div>
+
+            <!-- Widget -->
+            <div class="screenshot-group">
+                <h3>Widgets</h3>
+                <div class="screenshot-scroll widget">
+                    <img src="widget-1.png" alt="Home Screen widget showing a length conversion">
+                </div>
             </div>
         </div>
     </section>
