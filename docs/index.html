@@ -6,7 +6,26 @@
     <title>Equiv — Unit Converter</title>
     <meta name="description" content="Equiv is a fast, private unit converter for iPhone and Apple Watch. 20 categories, offline conversions, widgets, and more.">
     <meta name="theme-color" content="#007AFF">
-    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="canonical" href="https://callum552.github.io/Equiv/">
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Equiv — Unit Converter">
+    <meta property="og:description" content="A fast, private unit converter for iPhone and Apple Watch. 20 categories, widgets, offline conversions, and more.">
+    <meta property="og:image" content="https://callum552.github.io/Equiv/og-image.png">
+    <meta property="og:url" content="https://callum552.github.io/Equiv/">
+    <meta property="og:site_name" content="Equiv">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Equiv — Unit Converter">
+    <meta name="twitter:description" content="A fast, private unit converter for iPhone and Apple Watch.">
+    <meta name="twitter:image" content="https://callum552.github.io/Equiv/og-image.png">
+
     <style>
         :root {
             --bg: #ffffff;
@@ -91,10 +110,105 @@
             height: 54px;
         }
 
+        /* How It Works */
+        .how-it-works {
+            padding: 60px 0;
+        }
+
+        .how-it-works h2 {
+            text-align: center;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 48px;
+        }
+
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            text-align: center;
+        }
+
+        .step {
+            flex: 1;
+            max-width: 240px;
+        }
+
+        .step .number {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            font-size: 20px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .step h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .step p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Screenshots */
+        .screenshots {
+            padding: 60px 0;
+            background: var(--bg-secondary);
+            overflow: hidden;
+        }
+
+        .screenshots h2 {
+            text-align: center;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 48px;
+        }
+
+        .screenshot-scroll {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 0 24px;
+        }
+
+        .screenshot-scroll img {
+            height: 480px;
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            flex-shrink: 0;
+        }
+
+        .screenshot-placeholder {
+            height: 480px;
+            width: 222px;
+            border-radius: 24px;
+            background: var(--card-bg);
+            border: 2px dashed var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-align: center;
+            padding: 24px;
+        }
+
         /* Features */
         .features {
             padding: 60px 0;
-            background: var(--bg-secondary);
         }
 
         .features h2 {
@@ -138,6 +252,7 @@
         /* Privacy */
         .privacy-section {
             padding: 60px 0;
+            background: var(--bg-secondary);
             text-align: center;
         }
 
@@ -209,12 +324,38 @@
                 font-size: 18px;
             }
 
+            .steps {
+                flex-direction: column;
+                align-items: center;
+                gap: 32px;
+            }
+
+            .screenshot-scroll {
+                justify-content: flex-start;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scroll-snap-type: x mandatory;
+                padding-bottom: 8px;
+            }
+
+            .screenshot-scroll img,
+            .screenshot-placeholder {
+                scroll-snap-align: center;
+                height: 400px;
+            }
+
+            .screenshot-placeholder {
+                width: 185px;
+            }
+
             .features-grid {
                 grid-template-columns: 1fr;
                 gap: 12px;
             }
 
             .features h2,
+            .screenshots h2,
+            .how-it-works h2,
             .privacy-section h2 {
                 font-size: 26px;
             }
@@ -230,6 +371,15 @@
             .hero h1 {
                 font-size: 30px;
             }
+
+            .screenshot-scroll img,
+            .screenshot-placeholder {
+                height: 340px;
+            }
+
+            .screenshot-placeholder {
+                width: 157px;
+            }
         }
     </style>
 </head>
@@ -244,6 +394,45 @@
             <a class="app-store-badge" href="https://apps.apple.com/nl/app/equiv-simple-unit-converter/id6758530599?uo=2" aria-label="Download on the App Store">
                 <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" alt="Download on the App Store">
             </a>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works">
+        <div class="container">
+            <h2>Simple as 1, 2, 3</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="number">1</div>
+                    <h3>Pick a category</h3>
+                    <p>Choose from 20 unit categories, or search to find what you need.</p>
+                </div>
+                <div class="step">
+                    <div class="number">2</div>
+                    <h3>Enter a value</h3>
+                    <p>Type a number or use the Digital Crown on Apple Watch.</p>
+                </div>
+                <div class="step">
+                    <div class="number">3</div>
+                    <h3>Get your result</h3>
+                    <p>See the conversion instantly. Tap to copy, or share it.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Screenshots -->
+    <section class="screenshots">
+        <div class="container">
+            <h2>See it in action</h2>
+            <div class="screenshot-scroll">
+                <!-- Replace these placeholders with actual screenshots -->
+                <!-- Save screenshots as screenshot-1.png, screenshot-2.png, etc. in the docs/ folder -->
+                <!-- Then replace each placeholder div with: <img src="screenshot-1.png" alt="..."> -->
+                <div class="screenshot-placeholder">Add iPhone screenshots here</div>
+                <div class="screenshot-placeholder">Add iPhone screenshots here</div>
+                <div class="screenshot-placeholder">Add iPhone screenshots here</div>
+            </div>
         </div>
     </section>
 
