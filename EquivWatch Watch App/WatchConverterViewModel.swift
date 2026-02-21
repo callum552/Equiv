@@ -37,11 +37,11 @@ class WatchConverterViewModel {
         category.isCustom ? category.customUnits.count : category.dimensions.count
     }
 
+    var sourceSymbol: String { unitSymbol(at: sourceIndex) }
+    var destinationSymbol: String { unitSymbol(at: destinationIndex) }
+
     var formattedInput: String {
-        if crownValue == Double(Int(crownValue)) {
-            return String(Int(crownValue))
-        }
-        return String(format: "%g", crownValue)
+        formatValue(crownValue)
     }
 
     var result: String {
@@ -61,6 +61,14 @@ class WatchConverterViewModel {
         let temp = sourceIndex
         sourceIndex = destinationIndex
         destinationIndex = temp
+    }
+
+    func reset() {
+        crownValue = 0
+    }
+
+    func toggleNegative() {
+        crownValue = -crownValue
     }
 
     func unitSymbol(at index: Int) -> String {
@@ -95,6 +103,16 @@ class WatchConverterViewModel {
         let baseValue = value * units[sourceIndex].toBaseFactor
         let result = baseValue / units[destinationIndex].toBaseFactor
         return formatResult(result)
+    }
+
+    // MARK: - Formatting
+
+    private func formatValue(_ value: Double) -> String {
+        if value == 0 { return "0" }
+        if value == Double(Int(value)) {
+            return String(Int(value))
+        }
+        return String(format: "%g", value)
     }
 
     private func formatResult(_ value: Double) -> String {

@@ -19,7 +19,7 @@ struct WatchConverterView: View {
 
     var body: some View {
         List {
-            // MARK: - From Section
+            // MARK: - From
             Section {
                 Picker(String(localized: "Unit"), selection: $viewModel.sourceIndex) {
                     ForEach(0..<viewModel.unitCount, id: \.self) { index in
@@ -32,26 +32,54 @@ struct WatchConverterView: View {
                 Text("FROM")
             }
 
-            // MARK: - Swap
+            // MARK: - Controls
             Section {
-                Button {
-                    WKInterfaceDevice.current().play(.click)
-                    withAnimation(.spring(duration: 0.3)) {
-                        viewModel.swap()
-                        swapRotation += 180
-                    }
-                } label: {
-                    HStack {
-                        Spacer()
+                HStack(spacing: 0) {
+                    // Swap
+                    Button {
+                        WKInterfaceDevice.current().play(.click)
+                        withAnimation(.spring(duration: 0.3)) {
+                            viewModel.swap()
+                            swapRotation += 180
+                        }
+                    } label: {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.system(size: 14, weight: .semibold))
                             .rotationEffect(.degrees(swapRotation))
-                        Spacer()
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    Divider()
+
+                    // Negative toggle
+                    Button {
+                        WKInterfaceDevice.current().play(.click)
+                        viewModel.toggleNegative()
+                    } label: {
+                        Text("+/−")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    Divider()
+
+                    // Reset
+                    Button {
+                        WKInterfaceDevice.current().play(.click)
+                        withAnimation {
+                            viewModel.reset()
+                        }
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(maxWidth: .infinity)
                     }
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
             }
 
-            // MARK: - To Section
+            // MARK: - To
             Section {
                 Picker(String(localized: "Unit"), selection: $viewModel.destinationIndex) {
                     ForEach(0..<viewModel.unitCount, id: \.self) { index in
@@ -71,20 +99,19 @@ struct WatchConverterView: View {
                         Text(viewModel.steps[index].label).tag(index)
                     }
                 }
+            } header: {
+                Text("STEP")
             }
         }
         .navigationTitle(viewModel.category.displayName)
         .overlay(alignment: .top) {
             if showCopied {
-                Text("Copied")
+                Text(String(localized: "Copied"))
                     .font(.caption2)
                     .fontWeight(.semibold)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                    )
+                    .background(Capsule().fill(.ultraThinMaterial))
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
@@ -93,12 +120,17 @@ struct WatchConverterView: View {
     // MARK: - Crown Input
 
     private var crownInput: some View {
-        HStack {
+        HStack(spacing: 4) {
             Text(viewModel.formattedInput)
                 .font(.system(.title3, design: .rounded, weight: .bold))
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .animation(.default, value: viewModel.formattedInput)
+
+            Text(viewModel.sourceSymbol)
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
 
             Spacer()
 
@@ -121,16 +153,27 @@ struct WatchConverterView: View {
     // MARK: - Result Row
 
     private var resultRow: some View {
-        Text(viewModel.result.isEmpty ? "\u{2014}" : viewModel.result)
-            .font(.system(.title3, design: .rounded, weight: .bold))
-            .monospacedDigit()
-            .foregroundColor(viewModel.result.isEmpty ? Color.secondary : Color.blue)
-            .contentTransition(.numericText())
-            .animation(.default, value: viewModel.result)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .onTapGesture {
-                copyResult()
+        HStack(spacing: 4) {
+            Text(viewModel.result.isEmpty ? "—" : viewModel.result)
+                .font(.system(.title3, design: .rounded, weight: .bold))
+                .monospacedDigit()
+                .foregroundColor(viewModel.result.isEmpty ? Color.secondary : Color.blue)
+                .contentTransition(.numericText())
+                .animation(.default, value: viewModel.result)
+
+            if !viewModel.result.isEmpty {
+                Text(viewModel.destinationSymbol)
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onTapGesture {
+            copyResult()
+        }
     }
 
     // MARK: - Copy Result
