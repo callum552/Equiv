@@ -10,6 +10,7 @@ import AppIntents
 struct ConvertUnitIntent: AppIntent {
     static var title: LocalizedStringResource = "Convert Units"
     static var description: IntentDescription = IntentDescription("Convert a value from one unit to another")
+    static var openAppWhenRun: Bool = false
 
     @Parameter(title: "Value")
     var value: Double

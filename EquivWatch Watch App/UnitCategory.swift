@@ -14,7 +14,8 @@ enum UnitCategoryType: String, CaseIterable, Identifiable {
     case length, mass, temperature, volume, area, speed, time,
          digitalStorage, energy, pressure, angle, frequency,
          fuelEconomy, power, force, dataTransferRate,
-         torque, density, illuminance, currency
+         torque, density, illuminance, currency,
+         bloodSugar, typography, flowRate
 
     var id: String { rawValue }
 
@@ -40,6 +41,9 @@ enum UnitCategoryType: String, CaseIterable, Identifiable {
         case .density: String(localized: "Density")
         case .illuminance: String(localized: "Illuminance")
         case .currency: String(localized: "Currency")
+        case .bloodSugar: String(localized: "Blood Sugar")
+        case .typography: String(localized: "Typography")
+        case .flowRate: String(localized: "Flow Rate")
         }
     }
 
@@ -65,6 +69,9 @@ enum UnitCategoryType: String, CaseIterable, Identifiable {
         case .density: "cube"
         case .illuminance: "lightbulb"
         case .currency: "dollarsign.circle"
+        case .bloodSugar: "drop.fill"
+        case .typography: "textformat.size"
+        case .flowRate: "water.waves"
         }
     }
 
@@ -72,7 +79,9 @@ enum UnitCategoryType: String, CaseIterable, Identifiable {
 
     var isCustom: Bool {
         switch self {
-        case .force, .dataTransferRate, .torque, .density, .illuminance: return true
+        case .force, .dataTransferRate, .torque, .density, .illuminance,
+             .bloodSugar, .typography, .flowRate:
+            return true
         default: return false
         }
     }
@@ -134,7 +143,8 @@ enum UnitCategoryType: String, CaseIterable, Identifiable {
         case .power:
             return [UnitPower.watts, UnitPower.kilowatts, UnitPower.megawatts,
                     UnitPower.horsepower, UnitPower.milliwatts]
-        case .force, .dataTransferRate, .torque, .density, .illuminance, .currency:
+        case .force, .dataTransferRate, .torque, .density, .illuminance,
+             .currency, .bloodSugar, .typography, .flowRate:
             return []
         }
     }
@@ -180,6 +190,29 @@ enum UnitCategoryType: String, CaseIterable, Identifiable {
                 CustomUnit(name: "Foot-candles", symbol: "fc", toBaseFactor: 10.7639),
                 CustomUnit(name: "Phot", symbol: "ph", toBaseFactor: 10000.0),
                 CustomUnit(name: "Nox", symbol: "nx", toBaseFactor: 0.001),
+            ]
+        case .bloodSugar:
+            return [
+                CustomUnit(name: "Milligrams per decilitre", symbol: "mg/dL", toBaseFactor: 1.0),
+                CustomUnit(name: "Millimoles per litre", symbol: "mmol/L", toBaseFactor: 18.0182),
+            ]
+        case .typography:
+            return [
+                CustomUnit(name: "Points", symbol: "pt", toBaseFactor: 1.0),
+                CustomUnit(name: "Pixels (96 dpi)", symbol: "px", toBaseFactor: 0.75),
+                CustomUnit(name: "Picas", symbol: "pc", toBaseFactor: 12.0),
+                CustomUnit(name: "Em (16px base)", symbol: "em", toBaseFactor: 12.0),
+                CustomUnit(name: "DP / DIP (160 dpi)", symbol: "dp", toBaseFactor: 0.45),
+            ]
+        case .flowRate:
+            return [
+                CustomUnit(name: "Cubic metres per second", symbol: "m³/s", toBaseFactor: 1000.0),
+                CustomUnit(name: "Litres per second", symbol: "L/s", toBaseFactor: 1.0),
+                CustomUnit(name: "Litres per minute", symbol: "L/min", toBaseFactor: 1.0 / 60.0),
+                CustomUnit(name: "Litres per hour", symbol: "L/hr", toBaseFactor: 1.0 / 3600.0),
+                CustomUnit(name: "Millilitres per minute", symbol: "mL/min", toBaseFactor: 0.001 / 60.0),
+                CustomUnit(name: "US Gallons per minute", symbol: "GPM", toBaseFactor: 3.78541 / 60.0),
+                CustomUnit(name: "Cubic feet per minute", symbol: "CFM", toBaseFactor: 28.3168 / 60.0),
             ]
         default:
             return []

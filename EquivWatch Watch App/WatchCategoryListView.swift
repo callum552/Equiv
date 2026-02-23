@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct WatchCategoryListView: View {
-    private let categories = UnitCategoryType.allCases.filter { !$0.isCurrency }
+    private let categories = UnitCategoryType.allCases
 
     @AppStorage("watch_recent_categories") private var recentRaw: String = ""
 

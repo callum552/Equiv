@@ -65,6 +65,15 @@ struct AboutView: View {
                 }
             }
 
+            // Custom Conversions Section
+            Section {
+                NavigationLink(value: "custom_manage") {
+                    Label(String(localized: "Custom Conversions"), systemImage: "plus.circle")
+                }
+            } footer: {
+                Text(String(localized: "Create your own unit groups with custom conversion factors."))
+            }
+
             // Data Section
             Section {
                 Button(role: .destructive) {

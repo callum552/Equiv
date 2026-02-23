@@ -9,6 +9,10 @@ import SwiftUI
 
 @main
 struct EquivWatchApp: App {
+    init() {
+        WatchSessionManager.shared.activate()
+    }
+
     var body: some Scene {
         WindowGroup {
             WatchCategoryListView()

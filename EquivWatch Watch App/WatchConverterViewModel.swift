@@ -29,12 +29,60 @@ class WatchConverterViewModel {
         CrownStep(value: 100, label: "100"),
     ]
 
+    // MARK: - Currency state
+
+    private(set) var hasCurrencyRates: Bool = false
+    private var currencyRates: [String: Double] = [:]
+    private var currencyCodes: [String] = []
+
+    // MARK: - Init
+
+    init(category: UnitCategoryType) {
+        self.category = category
+        if category.isCurrency {
+            loadCurrencyRates()
+            NotificationCenter.default.addObserver(
+                forName: .watchRatesDidUpdate,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadCurrencyRates()
+            }
+        }
+    }
+
+    // MARK: - Currency loading
+
+    private func loadCurrencyRates() {
+        guard let ratesData = UserDefaults.standard.data(forKey: WatchSessionManager.ratesKey),
+              let rates = try? JSONDecoder().decode([String: Double].self, from: ratesData) else {
+            hasCurrencyRates = false
+            currencyRates = [:]
+            currencyCodes = []
+            return
+        }
+        currencyRates = rates
+
+        if let codesData = UserDefaults.standard.data(forKey: WatchSessionManager.codesKey),
+           let codes = try? JSONDecoder().decode([String].self, from: codesData) {
+            currencyCodes = codes.filter { rates[$0] != nil }
+        } else {
+            currencyCodes = rates.keys.sorted()
+        }
+        hasCurrencyRates = !currencyCodes.isEmpty
+    }
+
+    // MARK: - Computed properties
+
     var crownStep: Double {
         steps[stepIndex].value
     }
 
     var unitCount: Int {
-        category.isCustom ? category.customUnits.count : category.dimensions.count
+        if category.isCurrency {
+            return hasCurrencyRates ? currencyCodes.count : 0
+        }
+        return category.isCustom ? category.customUnits.count : category.dimensions.count
     }
 
     var sourceSymbol: String { unitSymbol(at: sourceIndex) }
@@ -46,16 +94,37 @@ class WatchConverterViewModel {
 
     var result: String {
         guard crownValue != 0 else { return "" }
-        if category.isCustom {
+        if category.isCurrency {
+            return convertCurrency(value: crownValue)
+        } else if category.isCustom {
             return convertCustom(value: crownValue)
         } else {
             return convertFoundation(value: crownValue)
         }
     }
 
-    init(category: UnitCategoryType) {
-        self.category = category
+    // MARK: - Unit accessors
+
+    func unitSymbol(at index: Int) -> String {
+        if category.isCurrency {
+            guard index < currencyCodes.count else { return "" }
+            return currencyCodes[index]
+        } else if category.isCustom {
+            let units = category.customUnits
+            guard index < units.count else { return "" }
+            return units[index].symbol
+        } else {
+            let dims = category.dimensions
+            guard index < dims.count else { return "" }
+            return dims[index].symbol
+        }
     }
+
+    func unitName(at index: Int) -> String {
+        unitSymbol(at: index)
+    }
+
+    // MARK: - Actions
 
     func swap() {
         let temp = sourceIndex
@@ -71,23 +140,19 @@ class WatchConverterViewModel {
         crownValue = -crownValue
     }
 
-    func unitSymbol(at index: Int) -> String {
-        if category.isCustom {
-            let units = category.customUnits
-            guard index < units.count else { return "" }
-            return units[index].symbol
-        } else {
-            let dims = category.dimensions
-            guard index < dims.count else { return "" }
-            return dims[index].symbol
-        }
-    }
-
-    func unitName(at index: Int) -> String {
-        unitSymbol(at: index)
-    }
-
     // MARK: - Conversion
+
+    private func convertCurrency(value: Double) -> String {
+        guard hasCurrencyRates,
+              sourceIndex < currencyCodes.count,
+              destinationIndex < currencyCodes.count else { return "" }
+        let fromCode = currencyCodes[sourceIndex]
+        let toCode = currencyCodes[destinationIndex]
+        guard let fromRate = currencyRates[fromCode],
+              let toRate = currencyRates[toCode],
+              fromRate > 0 else { return "" }
+        return formatResult(value * (toRate / fromRate))
+    }
 
     private func convertFoundation(value: Double) -> String {
         let dims = category.dimensions

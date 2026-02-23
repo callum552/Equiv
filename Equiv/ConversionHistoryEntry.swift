@@ -16,6 +16,7 @@ final class ConversionHistoryEntry {
     var inputValue: String = ""
     var resultValue: String = ""
     var timestamp: Date = Date.now
+    var isFavorited: Bool = false
 
     init(categoryRawValue: String, sourceUnitName: String,
          destinationUnitName: String, inputValue: String,

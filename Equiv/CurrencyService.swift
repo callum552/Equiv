@@ -41,13 +41,18 @@ class CurrencyService {
         "TRY": "Turkish Lira", "ZAR": "South African Rand", "RUB": "Russian Ruble",
         "PLN": "Polish Zloty", "THB": "Thai Baht", "TWD": "Taiwan Dollar",
         "MYR": "Malaysian Ringgit", "PHP": "Philippine Peso", "IDR": "Indonesian Rupiah",
-        "CZK": "Czech Koruna", "ILS": "Israeli Shekel", "AED": "UAE Dirham"
+        "CZK": "Czech Koruna", "ILS": "Israeli Shekel", "AED": "UAE Dirham",
+        "QAR": "Qatari Riyal", "SAR": "Saudi Riyal", "EGP": "Egyptian Pound",
+        "PKR": "Pakistani Rupee", "BDT": "Bangladeshi Taka", "VND": "Vietnamese Dong",
+        "NGN": "Nigerian Naira", "KWD": "Kuwaiti Dinar", "OMR": "Omani Rial",
+        "ARS": "Argentine Peso"
     ]
 
     private static let supportedCodes: [String] = [
         "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "INR", "MXN",
         "BRL", "KRW", "SEK", "NOK", "DKK", "NZD", "SGD", "HKD", "TRY", "ZAR",
-        "RUB", "PLN", "THB", "TWD", "MYR", "PHP", "IDR", "CZK", "ILS", "AED"
+        "RUB", "PLN", "THB", "TWD", "MYR", "PHP", "IDR", "CZK", "ILS", "AED",
+        "QAR", "SAR", "EGP", "PKR", "BDT", "VND", "NGN", "KWD", "OMR", "ARS"
     ]
 
     var canRefresh: Bool {
@@ -88,6 +93,7 @@ class CurrencyService {
                 self.isLoading = false
                 self.cacheRates(rates: response.rates)
                 self.startCooldownTimer()
+                PhoneSessionManager.shared.sendRates(response.rates, codes: Self.supportedCodes)
             }
             logger.info("Exchange rates updated successfully")
         } catch {

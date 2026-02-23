@@ -19,14 +19,29 @@ struct ConverterView: View {
     @State private var swapRotation: Double = 0
     @State private var showCopyTip = !UserDefaults.standard.bool(forKey: "equiv_copy_tip_shown")
     @State private var didSaveHistory = false
+    @State private var showAllUnits = false
     @FocusState private var inputFocused: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ScaledMetric(relativeTo: .title) private var resultFontSize: CGFloat = 36
 
+    private let prefKey: String
+
     init(category: UnitCategoryType) {
-        self.viewModel = ConverterViewModel(category: category)
+        prefKey = "equiv_pref_\(category.rawValue)"
+        var defaultSource = 0
+        var defaultDest = 1
+        if let pref = UserDefaults.standard.string(forKey: "equiv_pref_\(category.rawValue)") {
+            let parts = pref.split(separator: ",")
+            if parts.count == 2, let s = Int(parts[0]), let d = Int(parts[1]) {
+                defaultSource = s
+                defaultDest = d
+            }
+        }
+        self.viewModel = ConverterViewModel(category: category,
+                                            defaultSource: defaultSource,
+                                            defaultDest: defaultDest)
     }
 
     private var favoritesManager: FavoritesManager {
@@ -50,6 +65,14 @@ struct ConverterView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
+                    Button {
+                        showAllUnits = true
+                    } label: {
+                        Image(systemName: "list.bullet")
+                    }
+                    .accessibilityLabel(String(localized: "All Units"))
+                    .disabled(viewModel.inputValue.isEmpty)
+
                     if !viewModel.shareText.isEmpty {
                         ShareLink(item: viewModel.shareText) {
                             Image(systemName: "square.and.arrow.up")
@@ -68,6 +91,16 @@ struct ConverterView: View {
                 }
             }
             ToolbarItemGroup(placement: .keyboard) {
+                Button("+") { appendToInput("+") }
+                    .font(.system(.body, design: .monospaced))
+                Button("−") { appendToInput("-") }
+                    .font(.system(.body, design: .monospaced))
+                Button("×") { appendToInput("*") }
+                    .font(.system(.body, design: .monospaced))
+                Button("÷") { appendToInput("/") }
+                    .font(.system(.body, design: .monospaced))
+                Button("( )") { appendParenthesis() }
+                    .font(.system(.body, design: .monospaced))
                 Spacer()
                 Button(String(localized: "Done")) {
                     inputFocused = false
@@ -86,6 +119,9 @@ struct ConverterView: View {
                 copyTipBanner
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+        }
+        .sheet(isPresented: $showAllUnits) {
+            MultiConvertView(viewModel: viewModel)
         }
         .onAppear {
             startLiveActivity()
@@ -107,6 +143,12 @@ struct ConverterView: View {
                 )
             }
         }
+        .onChange(of: viewModel.sourceIndex) { _, newValue in
+            savePreference(source: newValue, dest: viewModel.destinationIndex)
+        }
+        .onChange(of: viewModel.destinationIndex) { _, newValue in
+            savePreference(source: viewModel.sourceIndex, dest: newValue)
+        }
         .task {
             if viewModel.category.isCurrency {
                 let service = CurrencyService(modelContext: modelContext)
@@ -116,12 +158,27 @@ struct ConverterView: View {
         }
     }
 
+    // MARK: - Helpers
+
+    private func appendToInput(_ str: String) {
+        viewModel.inputValue += str
+    }
+
+    private func appendParenthesis() {
+        let openCount = viewModel.inputValue.filter { $0 == "(" }.count
+        let closeCount = viewModel.inputValue.filter { $0 == ")" }.count
+        viewModel.inputValue += openCount > closeCount ? ")" : "("
+    }
+
+    private func savePreference(source: Int, dest: Int) {
+        UserDefaults.standard.set("\(source),\(dest)", forKey: prefKey)
+    }
+
     // MARK: - Currency Info Bar
 
     private var currencyInfoBar: some View {
         VStack(spacing: 8) {
             if let service = viewModel.currencyService {
-                // Error state with prominent retry
                 if service.error != nil && service.currencies.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "wifi.exclamationmark")
@@ -153,7 +210,6 @@ struct ConverterView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                 } else {
-                    // Normal info bar
                     HStack(spacing: 8) {
                         if service.isLoading {
                             ProgressView()
@@ -275,6 +331,14 @@ struct ConverterView: View {
                     }
                     .accessibilityLabel(String(localized: "Toggle negative"))
                     .accessibilityHint(String(localized: "Makes the value negative or positive"))
+                }
+
+                if let preview = viewModel.expressionPreview {
+                    Text(preview)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .animation(.easeInOut, value: preview)
                 }
             }
         }
@@ -450,7 +514,6 @@ struct ConverterView: View {
             resultValue: resultText
         )
 
-        // Update widget data
         let shared = SharedConversion(
             categoryRawValue: viewModel.category.rawValue,
             sourceUnitSymbol: viewModel.sourceUnitSymbol,

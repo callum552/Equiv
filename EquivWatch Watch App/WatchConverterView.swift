@@ -18,6 +18,19 @@ struct WatchConverterView: View {
     }
 
     var body: some View {
+        if viewModel.category.isCurrency && !viewModel.hasCurrencyRates {
+            ContentUnavailableView(
+                String(localized: "No Rates"),
+                systemImage: "wifi.slash",
+                description: Text(String(localized: "Open Equiv on your iPhone to sync exchange rates."))
+            )
+            .navigationTitle(viewModel.category.displayName)
+        } else {
+            mainContent
+        }
+    }
+
+    private var mainContent: some View {
         List {
             // MARK: - From
             Section {

@@ -21,23 +21,25 @@ struct EquivApp: App {
         let schema = Schema([
             FavoriteCategory.self,
             ConversionHistoryEntry.self,
-            CachedExchangeRates.self
+            CachedExchangeRates.self,
+            CustomConversionEntry.self
         ])
 
-        // Use local storage to ensure data persists reliably.
-        // CloudKit sync can be re-enabled once tested on a device with iCloud.
         do {
             let config = ModelConfiguration(
                 schema: schema,
                 isStoredInMemoryOnly: false,
-                cloudKitDatabase: .none
+                cloudKitDatabase: .automatic
             )
             modelContainer = try ModelContainer(for: schema, configurations: [config])
-            logger.info("ModelContainer created (local storage)")
+            logger.info("ModelContainer created (iCloud sync enabled)")
         } catch {
             logger.fault("Failed to create ModelContainer: \(error.localizedDescription)")
             fatalError("Failed to create ModelContainer: \(error)")
         }
+
+        // Activate WatchConnectivity so exchange rates are forwarded to the Watch
+        PhoneSessionManager.shared.activate()
     }
 
     var body: some Scene {

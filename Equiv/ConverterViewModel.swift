@@ -33,8 +33,25 @@ class ConverterViewModel {
         return category.isCustom ? category.customUnits.count : category.dimensions.count
     }
 
+    /// The numeric value of inputValue, supporting math expressions like "5*12" or "(2+3)/4".
+    var evaluatedInput: Double? {
+        let trimmed = inputValue.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        if let plain = Double(trimmed) { return plain }
+        return evaluateExpression(trimmed)
+    }
+
+    /// Non-nil when inputValue is a math expression (not a plain number).
+    /// Returns a formatted preview string like "= 60".
+    var expressionPreview: String? {
+        let trimmed = inputValue.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, Double(trimmed) == nil else { return nil }
+        guard let val = evaluateExpression(trimmed) else { return nil }
+        return "= \(formatResult(val))"
+    }
+
     var result: String {
-        guard let value = Double(inputValue) else { return "" }
+        guard let value = evaluatedInput else { return "" }
         if category.isCurrency {
             return convertCurrency(value: value)
         } else if category.isCustom {
@@ -58,7 +75,7 @@ class ConverterViewModel {
     }
 
     var allResults: [MultiConvertResult] {
-        guard let value = Double(inputValue) else { return [] }
+        guard let value = evaluatedInput else { return [] }
 
         var results: [MultiConvertResult] = []
 
@@ -107,8 +124,10 @@ class ConverterViewModel {
         return results
     }
 
-    init(category: UnitCategoryType) {
+    init(category: UnitCategoryType, defaultSource: Int = 0, defaultDest: Int = 1) {
         self.category = category
+        self.sourceIndex = defaultSource
+        self.destinationIndex = defaultDest
     }
 
     func toggleNegative() {
@@ -211,5 +230,67 @@ class ConverterViewModel {
         while trimmed.hasSuffix("0") { trimmed.removeLast() }
         if trimmed.hasSuffix(".") { trimmed.removeLast() }
         return trimmed
+    }
+
+    // MARK: - Expression Evaluator
+
+    /// Evaluates a math expression. Supports +, -, *, /, (, ), unary minus.
+    /// Uses mutually-recursive closures for a clean recursive-descent parse.
+    func evaluateExpression(_ input: String) -> Double? {
+        let s = input.filter { !$0.isWhitespace }
+        guard !s.isEmpty else { return nil }
+
+        var pos = s.startIndex
+
+        var parseExpr: (() -> Double?)!
+        var parseTerm: (() -> Double?)!
+        var parseFactor: (() -> Double?)!
+
+        parseFactor = {
+            guard pos < s.endIndex else { return nil }
+            if s[pos] == "(" {
+                s.formIndex(after: &pos)
+                let val = parseExpr()
+                if pos < s.endIndex, s[pos] == ")" { s.formIndex(after: &pos) }
+                return val
+            }
+            if s[pos] == "-" {
+                s.formIndex(after: &pos)
+                return parseFactor().map { -$0 }
+            }
+            var numStr = ""
+            while pos < s.endIndex && (s[pos].isNumber || s[pos] == ".") {
+                numStr.append(s[pos])
+                s.formIndex(after: &pos)
+            }
+            return numStr.isEmpty ? nil : Double(numStr)
+        }
+
+        parseTerm = {
+            guard var left = parseFactor() else { return nil }
+            while pos < s.endIndex, s[pos] == "*" || s[pos] == "/" {
+                let op = s[pos]; s.formIndex(after: &pos)
+                guard let right = parseFactor() else { return nil }
+                if op == "*" { left *= right } else {
+                    guard right != 0 else { return nil }
+                    left /= right
+                }
+            }
+            return left
+        }
+
+        parseExpr = {
+            guard var left = parseTerm() else { return nil }
+            while pos < s.endIndex, s[pos] == "+" || s[pos] == "-" {
+                let op = s[pos]; s.formIndex(after: &pos)
+                guard let right = parseTerm() else { return nil }
+                left = op == "+" ? left + right : left - right
+            }
+            return left
+        }
+
+        let result = parseExpr()
+        guard pos == s.endIndex else { return nil }
+        return result
     }
 }

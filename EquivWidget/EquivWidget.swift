@@ -7,34 +7,83 @@
 
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 struct ConversionEntry: TimelineEntry {
     let date: Date
     let conversion: SharedConversion?
+    let targetCategory: WidgetCategory
 }
 
-struct EquivWidgetProvider: TimelineProvider {
+struct EquivWidgetProvider: AppIntentTimelineProvider {
+    typealias Entry = ConversionEntry
+    typealias Intent = CategoryPickerIntent
+
     func placeholder(in context: Context) -> ConversionEntry {
-        ConversionEntry(date: .now, conversion: SharedConversion(
-            categoryRawValue: "length",
-            sourceUnitSymbol: "mi",
-            destinationUnitSymbol: "km",
-            inputValue: "1",
-            resultValue: "1.60934",
-            categoryDisplayName: "Length",
-            timestamp: .now
-        ))
+        ConversionEntry(
+            date: .now,
+            conversion: SharedConversion(
+                categoryRawValue: "length",
+                sourceUnitSymbol: "mi",
+                destinationUnitSymbol: "km",
+                inputValue: "1",
+                resultValue: "1.60934",
+                categoryDisplayName: "Length",
+                timestamp: .now
+            ),
+            targetCategory: .length
+        )
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (ConversionEntry) -> Void) {
-        let entry = ConversionEntry(date: .now, conversion: SharedConversion.load())
-        completion(entry)
+    func snapshot(for configuration: CategoryPickerIntent, in context: Context) async -> ConversionEntry {
+        let stored = SharedConversion.load()
+        let matchingConversion = stored?.categoryRawValue == configuration.category.rawValue ? stored : nil
+        return ConversionEntry(date: .now, conversion: matchingConversion, targetCategory: configuration.category)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<ConversionEntry>) -> Void) {
-        let entry = ConversionEntry(date: .now, conversion: SharedConversion.load())
-        let timeline = Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(3600)))
-        completion(timeline)
+    func timeline(for configuration: CategoryPickerIntent, in context: Context) async -> Timeline<ConversionEntry> {
+        let stored = SharedConversion.load()
+        let matchingConversion = stored?.categoryRawValue == configuration.category.rawValue ? stored : nil
+        let entry = ConversionEntry(date: .now, conversion: matchingConversion, targetCategory: configuration.category)
+        return Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(3600)))
+    }
+
+    func recommendations() -> [AppIntentRecommendation<CategoryPickerIntent>] {
+        [.length, .mass, .temperature, .volume, .speed, .currency].map { category in
+            var intent = CategoryPickerIntent()
+            intent.category = category
+            return AppIntentRecommendation(intent: intent, description: category.displayName)
+        }
+    }
+}
+
+extension WidgetCategory {
+    var displayName: String {
+        switch self {
+        case .length:          return "Length"
+        case .mass:            return "Weight / Mass"
+        case .temperature:     return "Temperature"
+        case .volume:          return "Volume"
+        case .area:            return "Area"
+        case .speed:           return "Speed"
+        case .time:            return "Time"
+        case .digitalStorage:  return "Digital Storage"
+        case .energy:          return "Energy"
+        case .pressure:        return "Pressure"
+        case .angle:           return "Angle"
+        case .frequency:       return "Frequency"
+        case .fuelEconomy:     return "Fuel Economy"
+        case .power:           return "Power"
+        case .force:           return "Force"
+        case .dataTransferRate: return "Data Transfer Rate"
+        case .torque:          return "Torque"
+        case .density:         return "Density"
+        case .illuminance:     return "Illuminance"
+        case .currency:        return "Currency"
+        case .bloodSugar:      return "Blood Sugar"
+        case .typography:      return "Typography"
+        case .flowRate:        return "Flow Rate"
+        }
     }
 }
 
@@ -43,16 +92,19 @@ struct EquivWidgetEntryView: View {
     @Environment(\.widgetFamily) var family
 
     var body: some View {
-        if let conversion = entry.conversion {
-            switch family {
-            case .systemSmall:
-                smallWidget(conversion)
-            default:
-                mediumWidget(conversion)
+        Group {
+            if let conversion = entry.conversion {
+                switch family {
+                case .systemSmall:
+                    smallWidget(conversion)
+                default:
+                    mediumWidget(conversion)
+                }
+            } else {
+                emptyWidget(for: entry.targetCategory)
             }
-        } else {
-            emptyWidget
         }
+        .widgetURL(URL(string: "equiv://category/\(entry.targetCategory.rawValue)"))
     }
 
     private func smallWidget(_ conversion: SharedConversion) -> some View {
@@ -132,14 +184,14 @@ struct EquivWidgetEntryView: View {
         .padding()
     }
 
-    private var emptyWidget: some View {
+    private func emptyWidget(for category: WidgetCategory) -> some View {
         VStack(spacing: 8) {
             Image(systemName: "arrow.left.arrow.right")
                 .font(.title)
                 .foregroundStyle(.secondary)
-            Text("Equiv")
+            Text(category.displayName)
                 .font(.headline)
-            Text(String(localized: "Convert a unit to see it here"))
+            Text(String(localized: "Tap to open"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -152,12 +204,12 @@ struct EquivWidget: Widget {
     let kind: String = "EquivWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: EquivWidgetProvider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: CategoryPickerIntent.self, provider: EquivWidgetProvider()) { entry in
             EquivWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Equiv")
-        .description(String(localized: "Shows your latest conversion"))
+        .description(String(localized: "Shows your latest conversion. Tap to open a category."))
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -165,13 +217,17 @@ struct EquivWidget: Widget {
 #Preview(as: .systemSmall) {
     EquivWidget()
 } timeline: {
-    ConversionEntry(date: .now, conversion: SharedConversion(
-        categoryRawValue: "length",
-        sourceUnitSymbol: "mi",
-        destinationUnitSymbol: "km",
-        inputValue: "5",
-        resultValue: "8.04672",
-        categoryDisplayName: "Length",
-        timestamp: .now
-    ))
+    ConversionEntry(
+        date: .now,
+        conversion: SharedConversion(
+            categoryRawValue: "length",
+            sourceUnitSymbol: "mi",
+            destinationUnitSymbol: "km",
+            inputValue: "5",
+            resultValue: "8.04672",
+            categoryDisplayName: "Length",
+            timestamp: .now
+        ),
+        targetCategory: .length
+    )
 }

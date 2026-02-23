@@ -166,6 +166,26 @@ struct UnitResolver {
         ("foot-candles", .illuminance, 1), ("fc", .illuminance, 1), ("foot-candle", .illuminance, 1),
         ("phot", .illuminance, 2), ("ph", .illuminance, 2),
         ("nox", .illuminance, 3), ("nx", .illuminance, 3),
+
+        // Blood Sugar (custom)
+        ("mg/dl", .bloodSugar, 0), ("mg per dl", .bloodSugar, 0), ("milligrams per deciliter", .bloodSugar, 0),
+        ("mmol/l", .bloodSugar, 1), ("mmol per l", .bloodSugar, 1), ("millimoles per litre", .bloodSugar, 1),
+
+        // Typography (custom)
+        ("points", .typography, 0), ("pt", .typography, 0), ("point", .typography, 0),
+        ("pixels", .typography, 1), ("px", .typography, 1), ("pixel", .typography, 1),
+        ("picas", .typography, 2), ("pc", .typography, 2), ("pica", .typography, 2),
+        ("em", .typography, 3),
+        ("dp", .typography, 4), ("dip", .typography, 4), ("density-independent pixels", .typography, 4),
+
+        // Flow Rate (custom)
+        ("cubic meters per second", .flowRate, 0), ("m3/s", .flowRate, 0), ("m³/s", .flowRate, 0),
+        ("liters per second", .flowRate, 1), ("litres per second", .flowRate, 1), ("l/s", .flowRate, 1),
+        ("liters per minute", .flowRate, 2), ("litres per minute", .flowRate, 2), ("l/min", .flowRate, 2), ("lpm", .flowRate, 2),
+        ("liters per hour", .flowRate, 3), ("litres per hour", .flowRate, 3), ("l/hr", .flowRate, 3), ("l/h", .flowRate, 3),
+        ("milliliters per minute", .flowRate, 4), ("millilitres per minute", .flowRate, 4), ("ml/min", .flowRate, 4),
+        ("gallons per minute", .flowRate, 5), ("gpm", .flowRate, 5),
+        ("cubic feet per minute", .flowRate, 6), ("cfm", .flowRate, 6),
     ]
 
     static func resolve(_ input: String) -> ResolvedUnit? {
